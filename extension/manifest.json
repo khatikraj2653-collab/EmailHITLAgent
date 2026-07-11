@@ -1,0 +1,26 @@
+﻿{
+  "manifest_version": 3,
+  "name": "HITL Email Agent",
+  "version": "1.0.0",
+  "description": "Human-in-the-loop AI email assistant, built into Gmail.",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:8000/*",
+    "https://mail.google.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "action": {
+    "default_title": "HITL Email Agent"
+  }
+}

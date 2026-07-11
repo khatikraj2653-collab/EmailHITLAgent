@@ -63,15 +63,17 @@ elif st.session_state.graph_state == "awaiting_decision":
     st.subheader("New Email")
     st.markdown(f"**From:** {data['sender']}")
     st.markdown(f"**Subject:** {data['subject']}")
+    st.markdown("**Summary:**")
+    st.info(data.get("email_summary", "(no summary available)"))
     st.markdown("**Body:**")
     st.text_area("Email content", data.get("body", ""), height=200, disabled=True, label_visibility="collapsed")
-    st.info("A notification with these details has also been emailed to you.")
+    st.caption("A notification with these details has also been emailed to you.")
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
 
-    if col1.button("✅ Accept", use_container_width=True):
+    if col1.button("✅ Response", use_container_width=True):
         with st.spinner("Drafting replies..."):
-            app.invoke(Command(resume="accept"), config=get_config())
+            app.invoke(Command(resume="response"), config=get_config())
         interrupt_data = get_current_interrupt()
         if interrupt_data:
             st.session_state.graph_state = "awaiting_draft_choice"
@@ -80,26 +82,10 @@ elif st.session_state.graph_state == "awaiting_decision":
             st.session_state.graph_state = "idle"
         st.rerun()
 
-    if col2.button("❌ Reject", use_container_width=True):
-        app.invoke(Command(resume="reject"), config=get_config())
+    if col2.button("❌ Ignore", use_container_width=True):
+        app.invoke(Command(resume="ignore"), config=get_config())
         st.session_state.graph_state = "idle"
         st.rerun()
-
-    with col3.expander("Something else"):
-        other_text = st.text_input("What would you like to do?", key="other_input")
-        if st.button("Submit", key="submit_other"):
-            if not other_text.strip():
-                st.warning("Please type an instruction first.")
-            else:
-                with st.spinner("Drafting based on your instruction..."):
-                    app.invoke(Command(resume=other_text), config=get_config())
-                interrupt_data = get_current_interrupt()
-                if interrupt_data:
-                    st.session_state.graph_state = "awaiting_draft_choice"
-                    st.session_state.interrupt_data = interrupt_data
-                else:
-                    st.session_state.graph_state = "idle"
-                st.rerun()
 
 
 # --- Stage 2: Short / Long / Redraft ---

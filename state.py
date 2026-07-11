@@ -26,4 +26,5 @@ class EmailHITLState(TypedDict, total=False):
 
     redraft_count: int
 
+    email_summary: Optional[str]
     summary: Optional[str]

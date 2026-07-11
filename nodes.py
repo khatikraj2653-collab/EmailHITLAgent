@@ -41,6 +41,24 @@ def fetch_email(state: EmailHITLState) -> EmailHITLState:
     }
 
 
+def summarize_email(state: EmailHITLState) -> EmailHITLState:
+    """Generate a short LLM summary of the incoming email."""
+    if not state.get("email_id"):
+        return state
+
+    prompt = f"""Summarize this email in 1-2 short, plain sentences for a busy person deciding whether to respond.
+
+From: {state['sender']}
+Subject: {state['subject']}
+Body: {state['body']}
+
+Summary:"""
+
+    summary_text = llm.invoke(prompt).content.strip()
+
+    return {**state, "email_summary": summary_text}
+
+
 def notify_human(state: EmailHITLState) -> EmailHITLState:
     """Send a notification from the agent account describing the new email."""
     notification_body = f"""New email received:
@@ -48,13 +66,15 @@ def notify_human(state: EmailHITLState) -> EmailHITLState:
 From: {state["sender"]}
 Subject: {state["subject"]}
 
+Summary:
+{state.get("email_summary", "")}
+
 Preview:
 {state["body"][:500]}
 
 Reply with one of the following:
-- ACCEPT  (draft a reply for approval)
-- REJECT  (ignore this email)
-- SOMETHING ELSE  (tell me what you'd like to do instead)
+- RESPONSE  (yes, draft a reply)
+- IGNORE  (no, do nothing)
 """
 
     send_email(

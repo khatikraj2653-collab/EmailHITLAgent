@@ -6,6 +6,9 @@ token_real.json
 
 # Databases with real email content
 hitl_checkpoints.db
+hitl_checkpoints.db-shm
+hitl_checkpoints.db-wal
+hitl_checkpoints.db-journal
 
 # Python
 venv/

@@ -14,14 +14,14 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import interrupt
 
 from state import EmailHITLState
-from nodes import fetch_email, notify_human, draft_reply, notify_drafts, send_final
+from nodes import fetch_email, summarize_email, notify_human, draft_reply, notify_drafts, send_final
 
 
 def route_after_fetch(state: EmailHITLState) -> str:
     """If no unread email was found, skip straight to END instead of notifying with blank data."""
     if not state.get("email_id"):
         return END
-    return "notify_human"
+    return "summarize_email"
 
 
 def wait_for_email_decision(state: EmailHITLState) -> EmailHITLState:
@@ -30,16 +30,15 @@ def wait_for_email_decision(state: EmailHITLState) -> EmailHITLState:
         "sender": state["sender"],
         "subject": state["subject"],
         "body": state["body"],
+        "email_summary": state.get("email_summary", ""),
     })
 
-    decision_clean = (decision or "").strip()
-    is_standard = decision_clean.lower() in ("accept", "reject")
+    decision_clean = (decision or "").strip().lower()
 
-    if is_standard:
-        return {**state, "human_decision": decision_clean.lower()}
+    if decision_clean in ("response", "accept"):
+        return {**state, "human_decision": "accept"}
 
-    # Custom "something else" instruction -> treat as accept + feedback for drafting
-    return {**state, "human_decision": "accept" if decision_clean else "reject", "redraft_feedback": decision_clean}
+    return {**state, "human_decision": "reject"}
 
 
 def route_after_decision(state: EmailHITLState) -> str:
@@ -83,6 +82,7 @@ def build_graph():
     graph = StateGraph(EmailHITLState)
 
     graph.add_node("fetch_email", fetch_email)
+    graph.add_node("summarize_email", summarize_email)
     graph.add_node("notify_human", notify_human)
     graph.add_node("wait_for_email_decision", wait_for_email_decision)
     graph.add_node("draft_reply", draft_reply)
@@ -95,9 +95,10 @@ def build_graph():
     graph.add_conditional_edges(
         "fetch_email",
         route_after_fetch,
-        {"notify_human": "notify_human", END: END},
+        {"summarize_email": "summarize_email", END: END},
     )
 
+    graph.add_edge("summarize_email", "notify_human")
     graph.add_edge("notify_human", "wait_for_email_decision")
 
     graph.add_conditional_edges(
