@@ -12,7 +12,8 @@ Test it directly (no extension needed yet):
 """
 
 import os
-os.environ['LANGCHAIN_TRACING_V2'] = 'false'
+os.environ['LANGCHAIN_TRACING_V2'] = 'true'
+os.environ['LANGCHAIN_PROJECT'] = 'HITL-Email-Agent'
 
 import uuid
 from fastapi import FastAPI

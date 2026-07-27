@@ -1,5 +1,4 @@
 ﻿import os
-os.environ['LANGCHAIN_TRACING_V2'] = 'false'
 
 """
 Shared state schema for the Email HITL Agent LangGraph workflow.

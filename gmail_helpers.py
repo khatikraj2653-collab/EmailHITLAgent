@@ -1,5 +1,4 @@
 ﻿import os
-os.environ['LANGCHAIN_TRACING_V2'] = 'false'
 
 """
 Gmail helper functions - read and send email via Gmail API.

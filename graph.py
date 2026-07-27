@@ -1,5 +1,4 @@
 ﻿import os
-os.environ['LANGCHAIN_TRACING_V2'] = 'false'
 
 """
 LangGraph workflow for the Email HITL Agent.

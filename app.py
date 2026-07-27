@@ -1,5 +1,6 @@
 ﻿import os
-os.environ['LANGCHAIN_TRACING_V2'] = 'false'
+os.environ['LANGCHAIN_TRACING_V2'] = 'true'
+os.environ['LANGCHAIN_PROJECT'] = 'HITL-Email-Agent'
 
 """
 Streamlit UI for the Email HITL Agent.

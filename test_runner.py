@@ -3,11 +3,12 @@ Terminal test runner for the Email HITL Agent graph.
 Simulates the human replying at each interrupt point via terminal input.
 """
 
+import uuid
 from graph import build_graph
 
 app = build_graph()
 
-config = {"configurable": {"thread_id": "test-thread-1"}}
+config = {"configurable": {"thread_id": str(uuid.uuid4())}}
 
 print("Starting graph... fetching email and sending notification.\n")
 result = app.invoke({}, config=config)
