@@ -1,4 +1,4 @@
-﻿import os
+import os
 
 """
 Node functions for the Email HITL Agent LangGraph workflow.
@@ -11,7 +11,7 @@ from langchain_openai import ChatOpenAI
 from gmail_helpers import list_unread, get_full_message_body, send_email, mark_as_read, AGENT_EMAIL
 from state import EmailHITLState
 
-load_dotenv()
+load_dotenv(override=True)
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.4, api_key=os.getenv("OPENAI_API_KEY"))
 
