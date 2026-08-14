@@ -53,7 +53,10 @@ Body: {state['body']}
 
 Summary:"""
 
-    summary_text = llm.invoke(prompt).content.strip()
+    try:
+        summary_text = llm.invoke(prompt).content.strip()
+    except Exception:
+        summary_text = "(Summary unavailable — the AI model failed to respond. See the full email body below.)"
 
     return {**state, "email_summary": summary_text}
 
@@ -111,10 +114,14 @@ LONG:
 <long reply text>
 """
 
-    response = llm.invoke(prompt).content
-
-    short_part = response.split("LONG:")[0].replace("SHORT:", "").strip()
-    long_part = response.split("LONG:")[1].strip() if "LONG:" in response else ""
+    try:
+        response = llm.invoke(prompt).content
+        short_part = response.split("LONG:")[0].replace("SHORT:", "").strip()
+        long_part = response.split("LONG:")[1].strip() if "LONG:" in response else ""
+    except Exception:
+        error_text = "(Draft unavailable — the AI model failed to respond. Try Redraft to retry.)"
+        short_part = error_text
+        long_part = error_text
 
     redraft_count = state.get("redraft_count", 0) + 1
 

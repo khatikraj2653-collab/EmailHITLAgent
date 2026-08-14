@@ -32,12 +32,19 @@ def wait_for_email_decision(state: EmailHITLState) -> EmailHITLState:
         "email_summary": state.get("email_summary", ""),
     })
 
-    decision_clean = (decision or "").strip().lower()
+    raw = (decision or "").strip()
+    decision_clean = raw.lower()
 
     if decision_clean in ("response", "accept"):
         return {**state, "human_decision": "accept"}
 
-    return {**state, "human_decision": "reject"}
+    if decision_clean in ("reject", "ignore", ""):
+        return {**state, "human_decision": "reject"}
+
+    # Anything else is a custom drafting instruction — treat it as an accept
+    # and seed draft_reply's feedback with the raw text, instead of silently
+    # discarding it as a rejection.
+    return {**state, "human_decision": "accept", "redraft_feedback": raw}
 
 
 def route_after_decision(state: EmailHITLState) -> str:
