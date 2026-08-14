@@ -73,7 +73,9 @@ function createCheckInboxButton() {
       .then(data => {
         console.log('check-inbox result:', data);
         checkBtn.textContent = '🤖 Check Inbox';
-        if (data.status === 'awaiting_decision') {
+        if (data.status === 'awaiting_selection') {
+          showEmailListPanel(data);
+        } else if (data.status === 'awaiting_decision') {
           showDecisionPanel(data);
         } else if (data.status === 'no_new_email') {
           const panel = document.getElementById('hitl-decision-panel');
@@ -118,6 +120,80 @@ function flashButton(btn, text, color) {
     btn.textContent = original;
     btn.style.backgroundColor = originalColor;
   }, 1500);
+}
+
+function showEmailListPanel(data) {
+  const old = document.getElementById('hitl-decision-panel');
+  if (old) old.remove();
+
+  const emailList = data.email_list || [];
+
+  const panel = document.createElement('div');
+  panel.id = 'hitl-decision-panel';
+  Object.assign(panel.style, {
+    position: 'fixed', top: '130px', right: '20px', width: '340px',
+    maxHeight: '70vh', overflowY: 'auto',
+    backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '12px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.25)', padding: '16px', zIndex: '9999',
+    fontFamily: 'Arial, sans-serif', fontSize: '13px'
+  });
+
+  const title = document.createElement('div');
+  title.textContent = `📥 Choose an email (${emailList.length})`;
+  title.style.fontWeight = 'bold';
+  title.style.marginBottom = '8px';
+  panel.appendChild(title);
+
+  if (emailList.length === 0) {
+    const empty = document.createElement('div');
+    empty.textContent = 'No emails found.';
+    panel.appendChild(empty);
+  }
+
+  emailList.forEach(email => {
+    const row = document.createElement('div');
+    Object.assign(row.style, {
+      border: '1px solid #e0e0e0', borderRadius: '8px', padding: '8px',
+      marginBottom: '6px', cursor: 'pointer', transition: 'background 0.15s'
+    });
+    row.onmouseenter = () => { row.style.background = '#f5f5f5'; };
+    row.onmouseleave = () => { row.style.background = 'white'; };
+
+    const subj = document.createElement('div');
+    subj.textContent = (email.unread ? '🔵 ' : '') + (email.subject || '(no subject)');
+    subj.style.fontWeight = '600';
+
+    const from = document.createElement('div');
+    from.textContent = 'From: ' + (email.from || '');
+    Object.assign(from.style, { fontSize: '11px', color: '#5f6368', marginTop: '2px' });
+
+    const snippet = document.createElement('div');
+    snippet.textContent = email.snippet || '';
+    Object.assign(snippet.style, {
+      fontSize: '11px', color: '#5f6368', marginTop: '4px',
+      overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box',
+      WebkitLineClamp: '2', WebkitBoxOrient: 'vertical'
+    });
+
+    row.appendChild(subj);
+    row.appendChild(from);
+    row.appendChild(snippet);
+
+    row.onclick = () => sendDecision(data.thread_id, email.id);
+
+    panel.appendChild(row);
+  });
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Cancel';
+  Object.assign(cancelBtn.style, {
+    width: '100%', marginTop: '6px', padding: '6px', background: '#f1f3f4',
+    color: '#333', border: 'none', borderRadius: '6px', cursor: 'pointer'
+  });
+  cancelBtn.onclick = () => sendDecision(data.thread_id, '');
+  panel.appendChild(cancelBtn);
+
+  document.body.appendChild(panel);
 }
 
 function showDecisionPanel(data) {
@@ -413,7 +489,9 @@ function sendDecision(threadId, decision) {
     .then(r => r.json())
     .then(result => {
       console.log('decide result:', result);
-      if (result.status === 'awaiting_draft_choice') {
+      if (result.status === 'awaiting_selection') {
+        showEmailListPanel(result);
+      } else if (result.status === 'awaiting_draft_choice') {
         showDraftChoicePanel(result);
       } else if (result.status === 'awaiting_decision') {
         showDecisionPanel(result);

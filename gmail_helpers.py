@@ -59,6 +59,45 @@ def list_unread(token_file: str, max_results: int = 5, exclude_sender: str = Non
     return parsed
 
 
+def list_recent(token_file: str, max_results: int = 20, exclude_sender: str = None):
+    """Return metadata for the most recent inbox messages, read AND unread —
+    unlike list_unread, this does not filter by the UNREAD label. Used to let
+    the user pick any email to act on, not just the newest unread one."""
+    service = get_service(token_file)
+    results = service.users().messages().list(
+        userId="me", labelIds=["INBOX"], maxResults=max_results * 2
+    ).execute()
+
+    messages = results.get("messages", [])
+    parsed = []
+
+    for msg in messages:
+        full_msg = service.users().messages().get(
+            userId="me", id=msg["id"], format="metadata",
+            metadataHeaders=["From", "Subject"]
+        ).execute()
+
+        headers = {h["name"]: h["value"] for h in full_msg["payload"]["headers"]}
+        sender = headers.get("From", "Unknown")
+
+        if exclude_sender and exclude_sender.lower() in sender.lower():
+            continue
+
+        parsed.append({
+            "id": msg["id"],
+            "thread_id": full_msg["threadId"],
+            "from": sender,
+            "subject": headers.get("Subject", "(no subject)"),
+            "snippet": full_msg.get("snippet", ""),
+            "unread": "UNREAD" in full_msg.get("labelIds", []),
+        })
+
+        if len(parsed) >= max_results:
+            break
+
+    return parsed
+
+
 def get_full_message_body(token_file: str, message_id: str):
     """Fetch the full plain-text body of a specific message."""
     service = get_service(token_file)

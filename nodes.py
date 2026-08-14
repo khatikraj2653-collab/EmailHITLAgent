@@ -8,7 +8,7 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
-from gmail_helpers import list_unread, get_full_message_body, send_email, mark_as_read, AGENT_EMAIL
+from gmail_helpers import list_recent, get_full_message_body, send_email, mark_as_read, AGENT_EMAIL
 from state import EmailHITLState
 
 load_dotenv(override=True)
@@ -16,25 +16,31 @@ load_dotenv(override=True)
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.4, api_key=os.getenv("OPENAI_API_KEY"))
 
 
-def fetch_email(state: EmailHITLState) -> EmailHITLState:
-    """Check the real inbox for a new unread email, load it into state, and mark it read immediately."""
-    unread = list_unread("token_real.json", max_results=1, exclude_sender=AGENT_EMAIL)
+def list_emails(state: EmailHITLState) -> EmailHITLState:
+    """List the 20 most recent inbox emails (read AND unread) for the user to pick from."""
+    emails = list_recent("token_real.json", max_results=20, exclude_sender=AGENT_EMAIL)
+    return {**state, "email_list": emails}
 
-    if not unread:
+
+def fetch_selected_email(state: EmailHITLState) -> EmailHITLState:
+    """Load the full body of whichever email the user picked, and mark it read."""
+    selected_id = state.get("selected_email_id")
+    meta = next((e for e in state.get("email_list", []) if e["id"] == selected_id), None)
+
+    if not selected_id or not meta:
         return {**state, "email_id": "", "sender": "", "subject": "", "body": ""}
 
-    msg = unread[0]
-    body = get_full_message_body("token_real.json", msg["id"])
+    body = get_full_message_body("token_real.json", selected_id)
 
     # Mark as read immediately so a re-run of the graph doesn't reprocess the same email
-    mark_as_read("token_real.json", msg["id"])
+    mark_as_read("token_real.json", selected_id)
 
     return {
         **state,
-        "email_id": msg["id"],
-        "thread_id": msg["thread_id"],
-        "sender": msg["from"],
-        "subject": msg["subject"],
+        "email_id": selected_id,
+        "thread_id": meta["thread_id"],
+        "sender": meta["from"],
+        "subject": meta["subject"],
         "body": body,
         "redraft_count": 0,
     }

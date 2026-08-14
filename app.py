@@ -22,7 +22,7 @@ if "thread_id" not in st.session_state:
     st.session_state.thread_id = None
 
 if "graph_state" not in st.session_state:
-    st.session_state.graph_state = "idle"  # idle | awaiting_decision | awaiting_draft_choice | done
+    st.session_state.graph_state = "idle"  # idle | awaiting_selection | awaiting_decision | awaiting_draft_choice | done
 
 if "timeline" not in st.session_state:
     st.session_state.timeline = []
@@ -46,16 +46,54 @@ if st.session_state.graph_state == "idle":
     st.write("Check your inbox for new emails to process.")
     if st.button("📬 Check Inbox Now", type="primary"):
         st.session_state.thread_id = str(uuid.uuid4())
-        with st.spinner("Fetching email and sending notification..."):
+        with st.spinner("Loading recent emails..."):
             app.invoke({}, config=get_config())
 
         interrupt_data = get_current_interrupt()
         if interrupt_data:
-            st.session_state.graph_state = "awaiting_decision"
+            st.session_state.graph_state = "awaiting_selection"
             st.session_state.interrupt_data = interrupt_data
             st.rerun()
         else:
-            st.info("No new unread emails found.")
+            st.info("No emails found in the inbox.")
+
+
+# --- Stage 0: pick any email (read or unread) from the last 20 ---
+elif st.session_state.graph_state == "awaiting_selection":
+    data = st.session_state.interrupt_data
+    email_list = data.get("email_list", [])
+
+    st.subheader("Choose an email")
+    st.caption(f"Showing the {len(email_list)} most recent inbox emails — pick any one to act on.")
+
+    if not email_list:
+        st.info("No emails found.")
+        if st.button("← Back"):
+            st.session_state.graph_state = "idle"
+            st.rerun()
+    else:
+        for email in email_list:
+            with st.container(border=True):
+                label = f"{'🔵 ' if email.get('unread') else ''}**{email['subject']}**"
+                st.markdown(label)
+                st.caption(f"From: {email['from']}")
+                st.write(email.get("snippet", ""))
+                if st.button("Select →", key=f"select_{email['id']}"):
+                    with st.spinner("Loading email and drafting..."):
+                        app.invoke(Command(resume=email["id"]), config=get_config())
+                    interrupt_data = get_current_interrupt()
+                    if interrupt_data:
+                        st.session_state.graph_state = "awaiting_decision"
+                        st.session_state.interrupt_data = interrupt_data
+                    else:
+                        st.session_state.graph_state = "idle"
+                    st.rerun()
+
+        st.markdown("---")
+        if st.button("Cancel"):
+            app.invoke(Command(resume=""), config=get_config())
+            st.session_state.graph_state = "idle"
+            st.rerun()
 
 
 # --- Stage 1: Accept / Reject / Something else ---

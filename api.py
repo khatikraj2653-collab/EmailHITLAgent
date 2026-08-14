@@ -1,8 +1,8 @@
 ﻿"""
 FastAPI wrapper around the existing HITL LangGraph agent (graph.py).
-This exposes the same fetch -> notify -> decide -> draft -> decide -> send
-flow as HTTP endpoints, so a Chrome extension (or any other frontend)
-can drive it without needing to import LangGraph directly.
+This exposes the same list -> select -> notify -> decide -> draft -> decide
+-> send flow as HTTP endpoints, so a Chrome extension (or any other
+frontend) can drive it without needing to import LangGraph directly.
 
 Run with:
     uvicorn api:app --reload --port 8000
@@ -42,7 +42,7 @@ active_sessions = {}
 
 class DecisionRequest(BaseModel):
     thread_id: str
-    decision: str  # "accept" | "reject" | free text | "short" | "long" | "redraft: ..."
+    decision: str  # an email id (selection stage) | "accept" | "reject" | free text | "short" | "long" | "redraft: ..."
 
 
 def get_current_interrupt(thread_id: str):
@@ -54,6 +54,41 @@ def get_current_interrupt(thread_id: str):
     return None
 
 
+def format_interrupt(thread_id: str, interrupt_data: dict):
+    """Turns a raw interrupt payload into the response shape the extension/frontend expects,
+    figuring out which of the three pause points we're at based on its keys."""
+    if interrupt_data is None:
+        return None
+
+    if "draft_short" in interrupt_data:
+        active_sessions[thread_id] = "awaiting_draft_choice"
+        return {
+            "status": "awaiting_draft_choice",
+            "thread_id": thread_id,
+            "draft_short": interrupt_data.get("draft_short"),
+            "draft_long": interrupt_data.get("draft_long"),
+            "draft_history": interrupt_data.get("draft_history", []),
+        }
+
+    if "email_list" in interrupt_data:
+        active_sessions[thread_id] = "awaiting_selection"
+        return {
+            "status": "awaiting_selection",
+            "thread_id": thread_id,
+            "email_list": interrupt_data.get("email_list", []),
+        }
+
+    active_sessions[thread_id] = "awaiting_decision"
+    return {
+        "status": "awaiting_decision",
+        "thread_id": thread_id,
+        "sender": interrupt_data.get("sender"),
+        "subject": interrupt_data.get("subject"),
+        "body": interrupt_data.get("body"),
+        "email_summary": interrupt_data.get("email_summary"),
+    }
+
+
 @app.get("/")
 def root():
     return {"status": "HITL Agent API is running"}
@@ -62,9 +97,9 @@ def root():
 @app.post("/check-inbox")
 def check_inbox():
     """
-    Starts a new graph run: fetches the latest unread email (if any),
-    sends the notification, and returns the first interrupt (waiting for
-    accept/reject/something-else) â€” or a message saying nothing new was found.
+    Starts a new graph run: lists the 20 most recent inbox emails (read and
+    unread) and returns the first interrupt asking the user to pick one â€”
+    or a message saying the inbox is empty.
     """
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
@@ -76,24 +111,17 @@ def check_inbox():
     if interrupt_data is None:
         return {"status": "no_new_email"}
 
-    active_sessions[thread_id] = "awaiting_decision"
-
-    return {
-        "status": "awaiting_decision",
-        "thread_id": thread_id,
-        "sender": interrupt_data.get("sender"),
-        "subject": interrupt_data.get("subject"),
-        "body": interrupt_data.get("body"),
-        "email_summary": interrupt_data.get("email_summary"),
-    }
+    return format_interrupt(thread_id, interrupt_data)
 
 
 @app.post("/decide")
 def decide(req: DecisionRequest):
     """
     Resumes a paused graph at whichever interrupt it's currently sitting at.
-    Works for BOTH interrupt points (accept/reject/something-else, AND
-    short/long/redraft) â€” the graph itself knows which one it's at.
+    Works for ALL THREE interrupt points (email selection, accept/reject/
+    something-else, AND short/long/redraft) â€” the graph itself knows which
+    one it's at; `req.decision` carries the selected email id, the decision
+    text, or the draft choice depending on where we currently are.
     """
     config = {"configurable": {"thread_id": req.thread_id}}
 
@@ -102,7 +130,7 @@ def decide(req: DecisionRequest):
     interrupt_data = get_current_interrupt(req.thread_id)
 
     if interrupt_data is None:
-        # Graph reached the end (send_final completed) - fetch the final state for the summary
+        # Graph reached the end (send_final completed, or was cancelled) - fetch the final state for the summary
         final_state = graph_app.get_state(config).values
         active_sessions.pop(req.thread_id, None)
         return {
@@ -110,26 +138,7 @@ def decide(req: DecisionRequest):
             "summary": final_state.get("summary", "No summary available."),
         }
 
-    # Still paused - figure out which interrupt we're at based on its keys
-    if "draft_short" in interrupt_data:
-        active_sessions[req.thread_id] = "awaiting_draft_choice"
-        return {
-            "status": "awaiting_draft_choice",
-            "thread_id": req.thread_id,
-            "draft_short": interrupt_data.get("draft_short"),
-            "draft_long": interrupt_data.get("draft_long"),
-            "draft_history": interrupt_data.get("draft_history", []),
-        }
-    else:
-        active_sessions[req.thread_id] = "awaiting_decision"
-        return {
-            "status": "awaiting_decision",
-            "thread_id": req.thread_id,
-            "sender": interrupt_data.get("sender"),
-            "subject": interrupt_data.get("subject"),
-            "body": interrupt_data.get("body"),
-            "email_summary": interrupt_data.get("email_summary"),
-        }
+    return format_interrupt(req.thread_id, interrupt_data)
 
 
 @app.get("/status/{thread_id}")

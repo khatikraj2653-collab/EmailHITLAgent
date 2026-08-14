@@ -8,6 +8,9 @@ from typing import TypedDict, Optional, List, Dict
 
 
 class EmailHITLState(TypedDict, total=False):
+    email_list: List[Dict[str, str]]
+    selected_email_id: Optional[str]
+
     email_id: str
     thread_id: str
     sender: str

@@ -2,9 +2,10 @@
 
 """
 LangGraph workflow for the Email HITL Agent.
-Uses interrupt() to pause execution and wait for human input at two points:
-  1. After notifying about a new email -> wait for Accept/Reject/Something else
-  2. After drafts are ready -> wait for Short/Long/Redraft
+Uses interrupt() to pause execution and wait for human input at three points:
+  1. After listing recent emails -> wait for the user to pick ANY one (read or unread)
+  2. After notifying about the picked email -> wait for Accept/Reject/Something else
+  3. After drafts are ready -> wait for Short/Long/Redraft
 """
 
 import sqlite3
@@ -13,11 +14,42 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import interrupt
 
 from state import EmailHITLState
-from nodes import fetch_email, summarize_email, notify_human, draft_reply, notify_drafts, send_final
+from nodes import (
+    list_emails,
+    fetch_selected_email,
+    summarize_email,
+    notify_human,
+    draft_reply,
+    notify_drafts,
+    send_final,
+)
+
+
+def route_after_list(state: EmailHITLState) -> str:
+    """If the inbox has nothing to show at all, skip straight to END."""
+    if not state.get("email_list"):
+        return END
+    return "wait_for_email_selection"
+
+
+def wait_for_email_selection(state: EmailHITLState) -> EmailHITLState:
+    """Pause and show the last 20 inbox emails (read and unread); resume value
+    is the id of whichever one the user picked, or empty/blank to cancel."""
+    selected_id = interrupt({
+        "message": "Choose an email to act on.",
+        "email_list": state.get("email_list", []),
+    })
+    return {**state, "selected_email_id": (selected_id or "").strip()}
+
+
+def route_after_selection(state: EmailHITLState) -> str:
+    if not state.get("selected_email_id"):
+        return END
+    return "fetch_selected_email"
 
 
 def route_after_fetch(state: EmailHITLState) -> str:
-    """If no unread email was found, skip straight to END instead of notifying with blank data."""
+    """If the selected email couldn't actually be loaded, skip straight to END instead of notifying with blank data."""
     if not state.get("email_id"):
         return END
     return "summarize_email"
@@ -87,7 +119,9 @@ def route_after_draft_choice(state: EmailHITLState) -> str:
 def build_graph():
     graph = StateGraph(EmailHITLState)
 
-    graph.add_node("fetch_email", fetch_email)
+    graph.add_node("list_emails", list_emails)
+    graph.add_node("wait_for_email_selection", wait_for_email_selection)
+    graph.add_node("fetch_selected_email", fetch_selected_email)
     graph.add_node("summarize_email", summarize_email)
     graph.add_node("notify_human", notify_human)
     graph.add_node("wait_for_email_decision", wait_for_email_decision)
@@ -96,10 +130,22 @@ def build_graph():
     graph.add_node("wait_for_draft_choice", wait_for_draft_choice)
     graph.add_node("send_final", send_final)
 
-    graph.set_entry_point("fetch_email")
+    graph.set_entry_point("list_emails")
 
     graph.add_conditional_edges(
-        "fetch_email",
+        "list_emails",
+        route_after_list,
+        {"wait_for_email_selection": "wait_for_email_selection", END: END},
+    )
+
+    graph.add_conditional_edges(
+        "wait_for_email_selection",
+        route_after_selection,
+        {"fetch_selected_email": "fetch_selected_email", END: END},
+    )
+
+    graph.add_conditional_edges(
+        "fetch_selected_email",
         route_after_fetch,
         {"summarize_email": "summarize_email", END: END},
     )
