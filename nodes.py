@@ -13,7 +13,7 @@ from state import EmailHITLState
 
 load_dotenv(override=True)
 
-llm = ChatOpenAI(model="gpt-5-nano", temperature=0.4, api_key=os.getenv("OPENAI_API_KEY"))
+llm = ChatOpenAI(model="gpt-4.1-nano", temperature=0.4, api_key=os.getenv("OPENAI_API_KEY"))
 
 
 def list_emails(state: EmailHITLState) -> EmailHITLState:
