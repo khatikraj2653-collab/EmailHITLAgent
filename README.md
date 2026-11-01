@@ -1,5 +1,7 @@
 # Email HITL Agent
 
+**Status:** open-source repository, not deployed. Gmail OAuth credentials (`credentials.json`, tokens) are git-ignored and must be supplied locally. The agent never sends an email without explicit human approval.
+
 A human-in-the-loop (HITL) email agent built with LangGraph: it drafts email responses and pauses for approval, either via in-app buttons in the Streamlit UI or by reply to a notification email.
 
 ## Stack
