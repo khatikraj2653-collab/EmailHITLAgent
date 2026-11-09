@@ -4,7 +4,7 @@ os.environ['LANGCHAIN_PROJECT'] = 'HITL-Email-Agent'
 
 """
 Streamlit UI for the Email HITL Agent.
-Supports approval via in-app buttons AND email replies still get sent as notifications.
+Approval happens via the in-app buttons; notification emails are sent for reference only.
 """
 
 import streamlit as st

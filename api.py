@@ -25,12 +25,14 @@ from graph import build_graph
 
 app = FastAPI(title="HITL Email Agent API")
 
-# Allow requests from a Chrome extension (extensions use chrome-extension:// origins)
+# The extension's content script runs inside the Gmail page, so its requests
+# arrive with the https://mail.google.com origin; chrome-extension:// origins
+# cover calls from the extension's own context. No other website gets CORS access.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten this to your specific extension ID once built
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origin_regex=r"^(https://mail\.google\.com|chrome-extension://[a-p]{32})$",
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 graph_app = build_graph()
