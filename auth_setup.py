@@ -2,8 +2,8 @@
 One-time Gmail OAuth setup script.
 
 Run this TWICE:
-  1st run -> log in as hitl.ai.raj.2605@gmail.com  -> produces token_agent.json
-  2nd run -> log in as khatikraj1054@gmail.com     -> produces token_real.json
+  1st run -> log in as the agent account (AGENT_EMAIL in .env) -> produces token_agent.json
+  2nd run -> log in as your real Gmail account                 -> produces token_real.json
 
 Usage:
   python auth_setup.py agent
@@ -22,8 +22,8 @@ SCOPES = [
 def main():
     if len(sys.argv) != 2 or sys.argv[1] not in ("agent", "real"):
         print("Usage: python auth_setup.py [agent|real]")
-        print("  agent -> for hitl.ai.raj.2605@gmail.com")
-        print("  real  -> for khatikraj1054@gmail.com")
+        print("  agent -> for the agent account (AGENT_EMAIL in .env)")
+        print("  real  -> for your real Gmail account")
         sys.exit(1)
 
     account_type = sys.argv[1]

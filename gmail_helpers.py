@@ -3,8 +3,8 @@
 """
 Gmail helper functions - read and send email via Gmail API.
 Uses two separate token files:
-  token_real.json  -> khatikraj1054@gmail.com  (receives real mail, sends final replies)
-  token_agent.json -> hitl.ai.raj.2605@gmail.com (sends notifications, receives your replies)
+  token_real.json  -> your real Gmail account (receives real mail, sends final replies)
+  token_agent.json -> the agent account, AGENT_EMAIL in .env (sends notifications)
 """
 
 import base64
@@ -12,8 +12,6 @@ from email.mime.text import MIMEText
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-
-AGENT_EMAIL = "hitl.ai.raj.2605@gmail.com"
 
 
 def get_service(token_file: str):

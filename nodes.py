@@ -8,12 +8,23 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
-from gmail_helpers import list_recent, get_full_message_body, send_email, mark_as_read, AGENT_EMAIL
+from gmail_helpers import list_recent, get_full_message_body, send_email, mark_as_read
 from state import EmailHITLState
 
 load_dotenv(override=True)
 
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.4, api_key=os.getenv("OPENAI_API_KEY"))
+
+def _require_env(name: str) -> str:
+    value = (os.getenv(name) or "").strip()
+    if not value:
+        raise RuntimeError(f"Missing required environment variable {name} - copy .env.example to .env and set it.")
+    return value
+
+
+AGENT_EMAIL = _require_env("AGENT_EMAIL")
+NOTIFY_EMAIL = _require_env("NOTIFY_EMAIL")
+
+llm = ChatOpenAI(model="gpt-6-luna", temperature=0.4, reasoning_effort="none", api_key=os.getenv("OPENAI_API_KEY"))
 
 
 def list_emails(state: EmailHITLState) -> EmailHITLState:
@@ -80,14 +91,13 @@ Summary:
 Preview:
 {state["body"][:500]}
 
-Reply with one of the following:
-- RESPONSE  (yes, draft a reply)
-- IGNORE  (no, do nothing)
+To decide, go back to where you started this check (the Email HITL Agent app, the Gmail side panel or the terminal) and choose Response or Ignore.
+Replying to this email has no effect.
 """
 
     send_email(
         "token_agent.json",
-        "khatikraj1054@gmail.com",
+        NOTIFY_EMAIL,
         f"[Action Needed] {state['subject']}",
         notification_body,
     )
@@ -152,15 +162,13 @@ def notify_drafts(state: EmailHITLState) -> EmailHITLState:
 --- LONG VERSION ---
 {state["draft_long"]}
 
-Reply with:
-- SHORT  (send the short version)
-- LONG   (send the long version)
-- REDRAFT: <your feedback>  (regenerate with changes)
+To choose, go back to where you started this check (the Email HITL Agent app, the Gmail side panel or the terminal) and send the short version, send the long version, or ask for a redraft.
+Replying to this email has no effect.
 """
 
     send_email(
         "token_agent.json",
-        "khatikraj1054@gmail.com",
+        NOTIFY_EMAIL,
         f"[Draft Ready] {state['subject']}",
         body,
     )
@@ -195,7 +203,7 @@ Redraft cycles: {state.get("redraft_count", 0)}
 
     send_email(
         "token_agent.json",
-        "khatikraj1054@gmail.com",
+        NOTIFY_EMAIL,
         f"[Sent] {state['subject']}",
         summary,
     )

@@ -2,7 +2,7 @@
 
 **Status:** open-source repository, not deployed. Gmail OAuth credentials (`credentials.json`, tokens) are git-ignored and must be supplied locally. The agent never sends an email without explicit human approval.
 
-A human-in-the-loop (HITL) email agent built with LangGraph: it drafts email responses and pauses for approval, either via in-app buttons in the Streamlit UI or by reply to a notification email.
+A human-in-the-loop (HITL) email agent built with LangGraph: it drafts email responses and pauses for approval, given via in-app buttons in the Streamlit UI, the Chrome extension's panel inside Gmail (through the local API), or the terminal script.
 
 ## Stack
 - Streamlit (`app.py`) — approval UI
@@ -34,7 +34,7 @@ flowchart TD
     route3 -->|no| END3([END])
     route3 -->|yes| summarize_email["summarize_email\n(LLM summary)"]
 
-    summarize_email --> notify_human["notify_human\n(email notification: RESPONSE / IGNORE)"]
+    summarize_email --> notify_human["notify_human\n(email notification: summary + preview)"]
     notify_human --> wait_for_email_decision
 
     subgraph HITL2["Human-in-the-loop: interrupt()"]
@@ -45,7 +45,7 @@ flowchart TD
     route4 -->|reject / empty| END4([END])
     route4 -->|accept or custom instruction| draft_reply["draft_reply\n(LLM: generate SHORT + LONG drafts)"]
 
-    draft_reply --> notify_drafts["notify_drafts\n(email notification: SHORT / LONG / REDRAFT)"]
+    draft_reply --> notify_drafts["notify_drafts\n(email notification: SHORT + LONG drafts)"]
     notify_drafts --> wait_for_draft_choice
 
     subgraph HITL3["Human-in-the-loop: interrupt()"]
@@ -59,9 +59,11 @@ flowchart TD
     send_final --> END5([END])
 ```
 
-The graph pauses at three `interrupt()` points (`wait_for_email_selection`, `wait_for_email_decision`, `wait_for_draft_choice`) using LangGraph's `SqliteSaver` checkpointer, so state persists across pauses and resumes — either from Streamlit UI button clicks (`app.py`) or from a reply to the notification email (`gmail_helpers.py` / `api.py`).
+The graph pauses at three `interrupt()` points (`wait_for_email_selection`, `wait_for_email_decision`, `wait_for_draft_choice`) using LangGraph's `SqliteSaver` checkpointer, so state persists across pauses and resumes. A paused run is resumed from Streamlit UI button clicks (`app.py`), from the Chrome extension's Gmail panel through the local API (`extension/` and `api.py`), or from the terminal script (`test_runner.py`). The notification emails are for reference only; replying to them does nothing.
 
 ## Run locally
+Copy `.env.example` to `.env` and set `OPENAI_API_KEY`, `NOTIFY_EMAIL` (the address that receives the agent's notification emails) and `AGENT_EMAIL` (the agent Gmail account's own address). The app stops at startup with an error naming the variable if either address is missing.
+
 ```bash
 pip install -r requirements.txt
 streamlit run app.py
